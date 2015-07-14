@@ -25,6 +25,23 @@ void caffe_cpu_gemv(const CBLAS_TRANSPOSE TransA, const int M, const int N,
     const Dtype alpha, const Dtype* A, const Dtype* x, const Dtype beta,
     Dtype* y);
 
+/* changes */
+template <typename Dtype>
+Dtype cal_gamma_cpu(const int K, const int S, const int N, const Dtype* W, const Dtype* X, Dtype* tempX1, Dtype* tempX2);
+
+template <typename Dtype>
+void cal_add_item_cpu(const Dtype co, const int N, const int K, const Dtype* W, const Dtype* x1, Dtype* tempX1, 
+    const Dtype* x2, Dtype* tempX2, const Dtype gamma, Dtype* KK);
+
+template <typename Dtype>
+void caffe_cpu_mmd(const int N, const int K, const int M, const int S, const int labeledTargetSize, 
+    const Dtype* W, const Dtype* X, const Dtype gamma, Dtype* delta_W);
+
+template <typename Dtype>
+void caffe_cpu_GR(const int N, const int K, const int M, const Dtype* W, 
+    const Dtype* X, const int topK, const Dtype lambda, Dtype* delta_W);
+/* end of change */
+
 template <typename Dtype>
 void caffe_axpy(const int N, const Dtype alpha, const Dtype* X,
     Dtype* Y);
@@ -157,6 +174,24 @@ template <typename Dtype>
 void caffe_gpu_gemv(const CBLAS_TRANSPOSE TransA, const int M, const int N,
     const Dtype alpha, const Dtype* A, const Dtype* x, const Dtype beta,
     Dtype* y);
+
+/* changes */
+template <typename Dtype>
+Dtype cal_gamma_gpu(const int K, const int S, const int N, const Dtype* W, const Dtype* X, Dtype* tempX1, Dtype* tempX2);
+
+template <typename Dtype>
+void cal_add_item_gpu(const Dtype co, const int N, const int K, const Dtype* W, const Dtype* x1, Dtype* tempX1, 
+    const Dtype* x2, Dtype* tempX2, const Dtype gamma, Dtype* KK);
+
+template <typename Dtype>
+void caffe_gpu_mmd(const int N, const int K, const int M, const int S, const int labeledTargetSize, 
+    const Dtype* W, const Dtype* X, const Dtype gamma, Dtype* delta_W);
+
+template <typename Dtype>
+void caffe_gpu_GR(const int N, const int K, const int M, const Dtype* W, 
+    const Dtype* X, const int topK, const Dtype lambda, Dtype* delta_W);
+/* end of change */
+
 
 template <typename Dtype>
 void caffe_gpu_axpy(const int N, const Dtype alpha, const Dtype* X,

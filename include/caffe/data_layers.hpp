@@ -242,6 +242,8 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Dtype> {
 
   vector<std::pair<std::string, int> > lines_;
   int lines_id_;
+  int target_lines_id_;
+  int labeled_target_id_;
 };
 
 /**

@@ -28,15 +28,15 @@ int main(int argc, char** argv) {
   namespace gflags = google;
 #endif
 
-  gflags::SetUsageMessage("Compute the mean_image of a set of images given by"
+  GFLAGS_NAMESPACE::SetUsageMessage("Compute the mean_image of a set of images given by"
         " a leveldb/lmdb\n"
         "Usage:\n"
         "    compute_image_mean [FLAGS] INPUT_DB [OUTPUT_FILE]\n");
 
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  GFLAGS_NAMESPACE::ParseCommandLineFlags(&argc, &argv, true);
 
   if (argc < 2 || argc > 3) {
-    gflags::ShowUsageWithFlagsRestrict(argv[0], "tools/compute_image_mean");
+    GFLAGS_NAMESPACE::ShowUsageWithFlagsRestrict(argv[0], "tools/compute_image_mean");
     return 1;
   }
 

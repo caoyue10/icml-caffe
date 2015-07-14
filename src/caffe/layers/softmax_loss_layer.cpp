@@ -60,7 +60,11 @@ void SoftmaxWithLossLayer<Dtype>::Forward_cpu(
   int dim = prob_.count() / outer_num_;
   int count = 0;
   Dtype loss = 0;
-  for (int i = 0; i < outer_num_; ++i) {
+
+  int labeled_target_size = this->layer_param_.labeled_target_batch_size();
+  int num = 32 + labeled_target_size;
+
+  for (int i = 0; i < num; ++i) {
     for (int j = 0; j < inner_num_; j++) {
       const int label_value = static_cast<int>(label[i * inner_num_ + j]);
       if (has_ignore_label_ && label_value == ignore_label_) {
@@ -76,7 +80,7 @@ void SoftmaxWithLossLayer<Dtype>::Forward_cpu(
   if (normalize_) {
     top[0]->mutable_cpu_data()[0] = loss / count;
   } else {
-    top[0]->mutable_cpu_data()[0] = loss / outer_num_;
+    top[0]->mutable_cpu_data()[0] = loss / num;
   }
   if (top.size() == 2) {
     top[1]->ShareData(prob_);
@@ -97,7 +101,11 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const Dtype* label = bottom[1]->cpu_data();
     int dim = prob_.count() / outer_num_;
     int count = 0;
-    for (int i = 0; i < outer_num_; ++i) {
+
+    int labeled_target_size = this->layer_param_.labeled_target_batch_size();
+    int num = 32 + labeled_target_size;
+
+    for (int i = 0; i < num; ++i) {
       for (int j = 0; j < inner_num_; ++j) {
         const int label_value = static_cast<int>(label[i * inner_num_ + j]);
         if (has_ignore_label_ && label_value == ignore_label_) {
@@ -115,7 +123,7 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     if (normalize_) {
       caffe_scal(prob_.count(), loss_weight / count, bottom_diff);
     } else {
-      caffe_scal(prob_.count(), loss_weight / outer_num_, bottom_diff);
+      caffe_scal(prob_.count(), loss_weight / num, bottom_diff);
     }
   }
 }

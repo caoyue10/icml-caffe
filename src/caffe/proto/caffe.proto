@@ -266,6 +266,8 @@ message LayerParameter {
   repeated string bottom = 3; // the name of each bottom blob
   repeated string top = 4; // the name of each top blob
 
+  optional uint32 labeled_target_batch_size = 421 [default = 0];
+
   // The train / test phase for computation.
   optional Phase phase = 10;
 
@@ -547,6 +549,10 @@ message ImageDataParameter {
   optional string source = 1;
   // Specify the batch size.
   optional uint32 batch_size = 4;
+
+  optional uint32 source_data_size = 419 [default = 0];
+  optional uint32 labeled_target_size = 420 [default = 0];
+
   // The rand_skip variable is for the data layer to skip a few data points
   // to avoid all asynchronous sgd clients to start at the same point. The skip
   // point would be set as rand_skip * rand(0,1). Note that rand_skip should not
@@ -585,6 +591,10 @@ message InnerProductParameter {
   optional bool bias_term = 2 [default = true]; // whether to have bias terms
   optional FillerParameter weight_filler = 3; // The filler for the weight
   optional FillerParameter bias_filler = 4; // The filler for the bias
+
+  optional float mmd_lambda = 419 [default = -1.0];
+  optional float gr_lambda = 420 [default = 0];
+  optional uint32 topk_in_gr = 422 [default = 0];
 
   // The first axis to be lumped into a single inner product computation;
   // all preceding axes are retained in the output.
@@ -775,6 +785,9 @@ message V1LayerParameter {
   optional string name = 4;
   repeated NetStateRule include = 32;
   repeated NetStateRule exclude = 33;
+
+  optional uint32 labeled_target_batch_size = 421 [default = 0];
+
   enum LayerType {
     NONE = 0;
     ABSVAL = 35;

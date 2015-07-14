@@ -509,18 +509,6 @@ void cal_add_item_gpu<float>(const float co, const int N, const int K, const flo
         tempGamma = tempGamma * 2;
     }
 
-    /*float list[15] = { 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0, 4.0, 8.0 };*/
-
-    /*float kernel = 0.0f;*/
-    /*float tempGamma;*/
-
-    /*for(int i = 0;i < 15;++i){*/
-        /*tempGamma = gamma * list[i];*/
-        /*float temp = (0.0 - tempGamma) * square_sum;*/
-        /*temp = exp(temp);*/
-        /*kernel += 2 * tempGamma * temp;*/
-    /*}*/
-
     /*float kernel = (0.0 - gamma) * square_sum;*/
     /*kernel = exp(kernel);*/
     /*kernel = 2 * gamma * kernel;*/
@@ -558,6 +546,8 @@ void caffe_gpu_mmd<float>(const int N, const int K, const int M, const int S, co
     //output the value of delta_W before MMD gradient
     float* temp;
     CUDA_CHECK(cudaMalloc(&temp, N*K * sizeof(float)));
+    float* temp1;
+    CUDA_CHECK(cudaMalloc(&temp1, N*K * sizeof(float)));
     caffe_gpu_sign(N*K, delta_W, temp);
     float sum;
     caffe_gpu_dot(N*K, delta_W, temp, &sum);
@@ -602,16 +592,7 @@ void caffe_gpu_mmd<float>(const int N, const int K, const int M, const int S, co
     float kernel_gamma = cal_gamma_gpu(K, M, N, W, X, tempX1, tempX2);
     int SS = (S>(M-S)) ? S : M-S;
     
-    /*for(int i = 0;i < S;++i){*/
-        /*for(int j = 0;j < S;++j){*/
-            /*const float* x_s = X + i * K;*/
-            /*const float* x_t = X + (j + S) * K;*/
-            
-            /*caffe_gpu_memset(sizeof(float) * N, 0, KK);*/
-            /*cal_add_item_gpu<float>(-1, N, K, W, x_s, tempX1, x_t, tempX2, kernel_gamma, KK);*/
-            /*caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, gamma, KK,tempX2, 1.0, delta_W);*/
-        /*}*/
-    /*}*/
+    caffe_gpu_set<float>(N*K, 0.0f, temp);
     
     for(int i = 0;i < SS;++i){
         //random
@@ -620,13 +601,13 @@ void caffe_gpu_mmd<float>(const int N, const int K, const int M, const int S, co
         if(s1 == s2){
             s2 = (s2 + 100) % S;
         }
-        int t1 = rand() % (M - S);
-        int t2 = rand() % (M - S);
+        int t1 = rand() % (M - S - labeledTargetSize);
+        int t2 = rand() % (M - S - labeledTargetSize);
         if(t1 == t2){
-            t2 = (t2 + 100) % (M - S);
+            t2 = (t2 + 100) % (M - S - labeledTargetSize);
         }
-        t1 = t1 + S;
-        t2 = t2 + S;
+        t1 = t1 + S + labeledTargetSize;
+        t2 = t2 + S + labeledTargetSize;
         
         const float *x_s1 = X + s1 * K;
         const float *x_s2 = X + s2 * K;
@@ -637,26 +618,33 @@ void caffe_gpu_mmd<float>(const int N, const int K, const int M, const int S, co
         //calculate four items of MMD gradient
         caffe_gpu_memset(sizeof(float) * N, 0, KK);
         cal_add_item_gpu<float>(-1, N, K, W, x_s1, tempX1, x_s2, tempX2, kernel_gamma, KK);
-        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, delta_W);
+        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, temp);
 
         caffe_gpu_memset(sizeof(float) * N, 0, KK);
         cal_add_item_gpu<float>(1, N, K, W, x_s1, tempX1, x_t2, tempX2, kernel_gamma, KK);
-        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, delta_W);
+        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, temp);
 
         caffe_gpu_memset(sizeof(float) * N, 0, KK);
         cal_add_item_gpu<float>(1, N, K, W, x_s2, tempX1, x_t1, tempX2, kernel_gamma, KK);
-        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, delta_W);
+        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, temp);
 
         caffe_gpu_memset(sizeof(float) * N, 0, KK);
         cal_add_item_gpu<float>(-1, N, K, W, x_t1, tempX1, x_t2, tempX2, kernel_gamma, KK);
-        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, delta_W);
+        caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, tempS * gamma, KK,tempX2, 1.0, temp);
     }
     //output the value of delta_W after MMD gradient
+    caffe_gpu_sign(N*K, temp, temp1);
+    float sum1;
+    caffe_gpu_dot(N*K, temp, temp1, &sum1);
+    float ratio = sum / sum1 * gamma;
+    caffe_gpu_axpy(N*K, ratio, temp, delta_W);
+
     caffe_gpu_sign(N*K, delta_W, temp);
     caffe_gpu_dot(N*K, delta_W, temp, &sum);
     LOG(INFO) << "delta_W after MMD, sum = " << sum << ", average = " << sum / (N*K);
     
     CUDA_CHECK(cudaFree(temp));
+    CUDA_CHECK(cudaFree(temp1));
     CUDA_CHECK(cudaFree(KK));
     CUDA_CHECK(cudaFree(tempX1));
     CUDA_CHECK(cudaFree(tempX2));

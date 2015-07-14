@@ -41,16 +41,63 @@ void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     lines_.push_back(std::make_pair(filename, label));
   }
 
+  /* changes */
+  int source_data_size = this->layer_param_.image_data_param().source_data_size();
+  int labeled_target_size = this->layer_param_.image_data_param().labeled_target_size();
+  //int test_data_size = lines_.size() - source_data_size;
+  /* end of change */
+
   if (this->layer_param_.image_data_param().shuffle()) {
     // randomly shuffle data
     LOG(INFO) << "Shuffling data";
-    const unsigned int prefetch_rng_seed = caffe_rng_rand();
+    /*const unsigned int prefetch_rng_seed = caffe_rng_rand();
     prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
-    ShuffleImages();
+    ShuffleImages();*/
+    
+    /* changes */
+    if(source_data_size == 0){
+        const unsigned int prefetch_rng_seed = caffe_rng_rand();
+        prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+        caffe::rng_t* prefetch_rng =
+                static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+        single_shuffle(lines_.begin(), lines_.end(), prefetch_rng);
+    }
+    else if(labeled_target_size == 0){
+        const unsigned int prefetch_rng_seed = caffe_rng_rand();
+        prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+        caffe::rng_t* prefetch_rng =
+                static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+        single_shuffle(lines_.begin(), lines_.begin() + source_data_size, prefetch_rng);    
+
+        const unsigned int prefetch_rng_seed2 = caffe_rng_rand();
+        prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed2));
+        prefetch_rng = static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+        single_shuffle(lines_.begin() + source_data_size, lines_.end(), prefetch_rng);    
+    }
+    else{
+        const unsigned int prefetch_rng_seed = caffe_rng_rand();
+        prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+        caffe::rng_t* prefetch_rng = static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+        single_shuffle(lines_.begin(), lines_.begin() + source_data_size, prefetch_rng);    
+
+        const unsigned int prefetch_rng_seed2 = caffe_rng_rand();
+        prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed2));
+        prefetch_rng = static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+        single_shuffle(lines_.begin() + source_data_size, lines_.begin() + source_data_size + labeled_target_size, prefetch_rng);           
+
+        const unsigned int prefetch_rng_seed3 = caffe_rng_rand();
+        prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed3));
+        prefetch_rng = static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+        single_shuffle(lines_.begin() + source_data_size + labeled_target_size, lines_.end(), prefetch_rng);           
+    }
+    /* end of changes */
   }
   LOG(INFO) << "A total of " << lines_.size() << " images.";
 
   lines_id_ = 0;
+  labeled_target_id_ = source_data_size;
+  target_lines_id_ = source_data_size + labeled_target_size;
+  
   // Check if we would need to randomly skip a few data points
   if (this->layer_param_.image_data_param().rand_skip()) {
     unsigned int skip = caffe_rng_rand() %
@@ -88,9 +135,9 @@ void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 void ImageDataLayer<Dtype>::ShuffleImages() {
-  caffe::rng_t* prefetch_rng =
-      static_cast<caffe::rng_t*>(prefetch_rng_->generator());
-  shuffle(lines_.begin(), lines_.end(), prefetch_rng);
+  //caffe::rng_t* prefetch_rng =
+  //    static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+  //shuffle(lines_.begin(), lines_.end(), prefetch_rng);
 }
 
 // This function is used to create a thread that prefetches the data.
@@ -126,32 +173,210 @@ void ImageDataLayer<Dtype>::InternalThreadEntry() {
 
   // datum scales
   const int lines_size = lines_.size();
-  for (int item_id = 0; item_id < batch_size; ++item_id) {
-    // get a blob
-    timer.Start();
-    CHECK_GT(lines_size, lines_id_);
-    cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
-        new_height, new_width, is_color);
-    CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
-    read_time += timer.MicroSeconds();
-    timer.Start();
-    // Apply transformations (mirror, crop...) to the image
-    int offset = this->prefetch_data_.offset(item_id);
-    this->transformed_data_.set_cpu_data(prefetch_data + offset);
-    this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
-    trans_time += timer.MicroSeconds();
 
-    prefetch_label[item_id] = lines_[lines_id_].second;
-    // go to the next iter
-    lines_id_++;
-    if (lines_id_ >= lines_size) {
-      // We have reached the end. Restart from the first.
-      DLOG(INFO) << "Restarting data prefetching from start.";
-      lines_id_ = 0;
-      if (this->layer_param_.image_data_param().shuffle()) {
-        ShuffleImages();
+  /* changes */
+  int source_size = image_data_param.source_data_size();
+  int labeled_target_size = image_data_param.labeled_target_size();
+  int target_size = lines_size - source_size;
+
+  if(source_size == 0){ // test data
+      for (int item_id = 0; item_id < batch_size; ++item_id) {
+        timer.Start();
+        CHECK_GT(lines_size, lines_id_);
+        cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
+        new_height, new_width, is_color);
+        CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
+        read_time += timer.MicroSeconds();
+        timer.Start();
+        // Apply transformations (mirror, crop...) to the image
+        int offset = this->prefetch_data_.offset(item_id);
+        this->transformed_data_.set_cpu_data(prefetch_data + offset);
+        this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
+        trans_time += timer.MicroSeconds();
+
+        prefetch_label[item_id] = lines_[lines_id_].second;
+        // go to the next iter
+        lines_id_++;
+        if (lines_id_ >= lines_size) {
+          // We have reached the end. Restart from the first.
+          DLOG(INFO) << "Restarting data prefetching from start.";
+          lines_id_ = 0;
+          if (this->layer_param_.image_data_param().shuffle()) {
+              LOG(INFO) << "Shuffling test data";
+              const unsigned int prefetch_rng_seed = caffe_rng_rand();
+              prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+              caffe::rng_t* prefetch_rng =
+                    static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+              single_shuffle(lines_.begin(), lines_.end(), prefetch_rng);
+          }
+        }
       }
-    }
+  }
+  else if(labeled_target_size == 0){ // no semi
+      for (int item_id = 0; item_id < batch_size; ++item_id) {
+          if(item_id < 32){
+            timer.Start();
+            CHECK_GT(source_size, lines_id_);
+            cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
+            new_height, new_width, is_color);
+            CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
+            read_time += timer.MicroSeconds();
+            timer.Start();
+            // Apply transformations (mirror, crop...) to the image
+            int offset = this->prefetch_data_.offset(item_id);
+            this->transformed_data_.set_cpu_data(prefetch_data + offset);
+            this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
+            trans_time += timer.MicroSeconds();
+
+            prefetch_label[item_id] = lines_[lines_id_].second;
+            // go to the next iter
+            lines_id_++;
+            if (lines_id_ >= source_size) {
+              // We have reached the end. Restart from the first.
+              DLOG(INFO) << "Restarting data prefetching from start.";
+              lines_id_ = 0;
+              if (this->layer_param_.image_data_param().shuffle()) {
+                  LOG(INFO) << "Shuffling source data";
+                  const unsigned int prefetch_rng_seed = caffe_rng_rand();
+                  prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+                  caffe::rng_t* prefetch_rng =
+                        static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+                  single_shuffle(lines_.begin(), lines_.begin() + source_size, prefetch_rng);
+              }
+            }
+          }
+          else{
+            timer.Start();
+            CHECK_GT(lines_size, target_lines_id_);
+            CHECK_LT(source_size - 1, target_lines_id_);
+            cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[target_lines_id_].first,
+            new_height, new_width, is_color);
+            CHECK(cv_img.data) << "Could not load " << lines_[target_lines_id_].first;
+            read_time += timer.MicroSeconds();
+            timer.Start();
+            // Apply transformations (mirror, crop...) to the image
+            int offset = this->prefetch_data_.offset(item_id);
+            this->transformed_data_.set_cpu_data(prefetch_data + offset);
+            this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
+            trans_time += timer.MicroSeconds();
+
+            prefetch_label[item_id] = lines_[target_lines_id_].second;
+            // go to the next iter
+            target_lines_id_++;
+            if (target_lines_id_ >= lines_size) {
+              // We have reached the end. Restart from the first.
+              DLOG(INFO) << "Restarting data prefetching from start.";
+              target_lines_id_ = source_size;
+              if (this->layer_param_.image_data_param().shuffle()) {
+                  LOG(INFO) << "Shuffling target data";
+                  const unsigned int prefetch_rng_seed = caffe_rng_rand();
+                  prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+                  caffe::rng_t* prefetch_rng =
+                        static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+                  single_shuffle(lines_.begin() + source_size, lines_.end(), prefetch_rng);
+              }
+            } 
+          }
+      }
+  }
+  else{ // semi
+      for (int item_id = 0; item_id < batch_size; ++item_id) {
+          if(item_id < 32){
+            timer.Start();
+            CHECK_GT(source_size, lines_id_);
+            cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
+            new_height, new_width, is_color);
+            CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
+            read_time += timer.MicroSeconds();
+            timer.Start();
+            // Apply transformations (mirror, crop...) to the image
+            int offset = this->prefetch_data_.offset(item_id);
+            this->transformed_data_.set_cpu_data(prefetch_data + offset);
+            this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
+            trans_time += timer.MicroSeconds();
+
+            prefetch_label[item_id] = lines_[lines_id_].second;
+            // go to the next iter
+            lines_id_++;
+            if (lines_id_ >= source_size) {
+              // We have reached the end. Restart from the first.
+              DLOG(INFO) << "Restarting data prefetching from start.";
+              lines_id_ = 0;
+              if (this->layer_param_.image_data_param().shuffle()) {
+                  LOG(INFO) << "Shuffling source data";
+                  const unsigned int prefetch_rng_seed = caffe_rng_rand();
+                  prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+                  caffe::rng_t* prefetch_rng =
+                        static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+                  single_shuffle(lines_.begin(), lines_.begin() + source_size, prefetch_rng);
+              }
+            }
+          }
+          else if(item_id < 35){
+            timer.Start();
+            CHECK_GT(source_size+labeled_target_size, labeled_target_id_);
+            CHECK_LT(source_size - 1, labeled_target_id_);
+            cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[labeled_target_id_].first,
+            new_height, new_width, is_color);
+            CHECK(cv_img.data) << "Could not load " << lines_[labeled_target_id_].first;
+            read_time += timer.MicroSeconds();
+            timer.Start();
+            // Apply transformations (mirror, crop...) to the image
+            int offset = this->prefetch_data_.offset(item_id);
+            this->transformed_data_.set_cpu_data(prefetch_data + offset);
+            this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
+            trans_time += timer.MicroSeconds();
+
+            prefetch_label[item_id] = lines_[labeled_target_id_].second;
+            // go to the next iter
+            labeled_target_id_++;
+            if (labeled_target_id_ >= source_size + labeled_target_size) {
+              // We have reached the end. Restart from the first.
+              DLOG(INFO) << "Restarting data prefetching from start.";
+              labeled_target_id_ = source_size;
+              if (this->layer_param_.image_data_param().shuffle()) {
+                  LOG(INFO) << "Shuffling source data";
+                  const unsigned int prefetch_rng_seed = caffe_rng_rand();
+                  prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+                  caffe::rng_t* prefetch_rng =
+                        static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+                  single_shuffle(lines_.begin() + source_size, lines_.begin() + source_size + labeled_target_size, prefetch_rng);
+              }
+            }
+          }
+          else{
+            timer.Start();
+            CHECK_GT(lines_size, target_lines_id_);
+            CHECK_LT(source_size + labeled_target_size - 1, target_lines_id_);
+            cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[target_lines_id_].first,
+            new_height, new_width, is_color);
+            CHECK(cv_img.data) << "Could not load " << lines_[target_lines_id_].first;
+            read_time += timer.MicroSeconds();
+            timer.Start();
+            // Apply transformations (mirror, crop...) to the image
+            int offset = this->prefetch_data_.offset(item_id);
+            this->transformed_data_.set_cpu_data(prefetch_data + offset);
+            this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
+            trans_time += timer.MicroSeconds();
+
+            prefetch_label[item_id] = lines_[target_lines_id_].second;
+            // go to the next iter
+            target_lines_id_++;
+            if (target_lines_id_ >= lines_size) {
+              // We have reached the end. Restart from the first.
+              DLOG(INFO) << "Restarting data prefetching from start.";
+              target_lines_id_ = source_size + labeled_target_size;
+              if (this->layer_param_.image_data_param().shuffle()) {
+                  LOG(INFO) << "Shuffling target data";
+                  const unsigned int prefetch_rng_seed = caffe_rng_rand();
+                  prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+                  caffe::rng_t* prefetch_rng =
+                        static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+                  single_shuffle(lines_.begin() + source_size + labeled_target_size, lines_.end(), prefetch_rng);
+              }
+            } 
+          }
+      }
   }
   batch_timer.Stop();
   DLOG(INFO) << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";

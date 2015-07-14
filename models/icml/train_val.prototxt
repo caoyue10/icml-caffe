@@ -6,7 +6,7 @@ layers {
   top: "label"
   image_data_param {
     source_data_size: 2817
-    source: "data/office/amazon_to_webcam/train.txt"
+    source: "train_path.txt"
     batch_size: 64
     new_height: 256
     new_width: 256
@@ -25,7 +25,7 @@ layers {
   top: "data"
   top: "label"
   image_data_param {
-    source: "data/office/amazon_to_webcam/test.txt"
+    source: "test_path.txt"
     batch_size: 53
     new_height: 256
     new_width: 256

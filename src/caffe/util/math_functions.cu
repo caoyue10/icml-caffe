@@ -442,7 +442,6 @@ void caffe_gpu_rng_gaussian(const int n, const double mu, const double sigma,
   CURAND_CHECK(
       curandGenerateNormalDouble(Caffe::curand_generator(), r, n, mu, sigma));
 }
-/* changes */
 
 //calculate gamma in kernel function
 //K: dimension of data
@@ -509,22 +508,6 @@ void cal_add_item_gpu<float>(const float co, const int N, const int K, const flo
         tempGamma = tempGamma * 2;
     }
 
-    /*float list[15] = { 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0, 4.0, 8.0 };*/
-
-    /*float kernel = 0.0f;*/
-    /*float tempGamma;*/
-
-    /*for(int i = 0;i < 15;++i){*/
-        /*tempGamma = gamma * list[i];*/
-        /*float temp = (0.0 - tempGamma) * square_sum;*/
-        /*temp = exp(temp);*/
-        /*kernel += 2 * tempGamma * temp;*/
-    /*}*/
-
-    /*float kernel = (0.0 - gamma) * square_sum;*/
-    /*kernel = exp(kernel);*/
-    /*kernel = 2 * gamma * kernel;*/
-
     //calculate KK <- co * kernel * X^T * W + 1 * KK
     caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, 1, N, K, co*kernel, tempX2, W, 0.0, KK);
 }
@@ -534,12 +517,6 @@ void cal_add_item_gpu<double>(const double co, const int N, const int K, const d
     const double* x2, double* tempX2, const double gamma, double* KK){
     //TODO: complete double version of this function
 }
-
-/*__global__ void test1(const int n, int* a, int* b, int* c) {*/
-    /*CUDA_KERNEL_LOOP(index, n){*/
-        /*c[index] = a[index] + b[index];*/
-    /*}*/
-/*}*/
 
 // Gradient with respect to weight for MMD
       //N: number of output neuron
@@ -561,36 +538,7 @@ void caffe_gpu_mmd<float>(const int N, const int K, const int M, const int S, co
     caffe_gpu_sign(N*K, delta_W, temp);
     float sum;
     caffe_gpu_dot(N*K, delta_W, temp, &sum);
-    LOG(INFO) << "delta_W before MMD, sum = " << sum << ", average = " << sum / (N*K);
-
-
-
-    /*int* a;*/
-    /*int* b;*/
-    /*int* c;*/
-    /*CUDA_CHECK(cudaMalloc(&a, 8 * sizeof(int)));*/
-    /*CUDA_CHECK(cudaMalloc(&b, 8 * sizeof(int)));*/
-    /*CUDA_CHECK(cudaMalloc(&c, 8 * sizeof(int)));*/
-    
-    /*int* aa = new int[8];*/
-    /*int* bb = new int[8];*/
-    /*int* cc = new int[8];*/
-    /*for(int i = 0; i < 8;++i){*/
-        /*aa[i] = i;*/
-        /*bb[i] = i * 2;*/
-        /*cc[i] = -1;*/
-    /*}*/
-    /*caffe_gpu_memcpy(8*sizeof(int), aa, a);*/
-    /*caffe_gpu_memcpy(8*sizeof(int), bb, b);*/
-
-    /*test1<<<2, 4>>>(8, a, b, c);*/
-    /*caffe_gpu_memcpy(8*sizeof(int), c, cc);*/
-    /*LOG(INFO) << "----------" << CAFFE_CUDA_NUM_THREADS ;*/
-    /*for(int i = 0;i < 8;++i) LOG(INFO) << cc[i];*/
-    /*LOG(INFO) << "----------";*/
-
-
-
+    //LOG(INFO) << "delta_W before MMD, sum = " << sum << ", average = " << sum / (N*K);
 
     float* KK;
     float* tempX1;
@@ -601,17 +549,6 @@ void caffe_gpu_mmd<float>(const int N, const int K, const int M, const int S, co
 
     float kernel_gamma = cal_gamma_gpu(K, M, N, W, X, tempX1, tempX2);
     int SS = (S>(M-S)) ? S : M-S;
-    
-    /*for(int i = 0;i < S;++i){*/
-        /*for(int j = 0;j < S;++j){*/
-            /*const float* x_s = X + i * K;*/
-            /*const float* x_t = X + (j + S) * K;*/
-            
-            /*caffe_gpu_memset(sizeof(float) * N, 0, KK);*/
-            /*cal_add_item_gpu<float>(-1, N, K, W, x_s, tempX1, x_t, tempX2, kernel_gamma, KK);*/
-            /*caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, K, 1, gamma, KK,tempX2, 1.0, delta_W);*/
-        /*}*/
-    /*}*/
     
     for(int i = 0;i < SS;++i){
         //random
@@ -654,7 +591,7 @@ void caffe_gpu_mmd<float>(const int N, const int K, const int M, const int S, co
     //output the value of delta_W after MMD gradient
     caffe_gpu_sign(N*K, delta_W, temp);
     caffe_gpu_dot(N*K, delta_W, temp, &sum);
-    LOG(INFO) << "delta_W after MMD, sum = " << sum << ", average = " << sum / (N*K);
+    //LOG(INFO) << "delta_W after MMD, sum = " << sum << ", average = " << sum / (N*K);
     
     CUDA_CHECK(cudaFree(temp));
     CUDA_CHECK(cudaFree(KK));
@@ -668,124 +605,4 @@ void caffe_gpu_mmd<double>(const int N, const int K, const int M, const int S, c
     //TODO: complete the double version of this function
 }
 
-int compare_float_gpu(const void* a, const void* b){
-    float arg1 = *reinterpret_cast<const float*>(a);
-    float arg2 = *reinterpret_cast<const float*>(b);
-    if(arg1 < arg2) return -1;
-    if(arg1 > arg2) return 1;
-    return 0;
-}
-
-float find_topK_gpu(float* arr, const int k, const int len){
-    std::qsort(arr, len, sizeof(float), compare_float_gpu);
-    return arr[k];
-}
-
-//Gradient of GR
-  //N: output num
-  //K: input dimension
-  //M: minibatch size
-  //W: weight
-  //X: input
-  //topK: top-k
-  //lambda: lambda
-  //delta_W: gradient
-template<>
-void caffe_gpu_GR<float>(const int N, const int K, const int M, const float* W, 
-    const float* X, const int topK, const float lambda, float* delta_W){
-    float *S = new float[M * M];
-    float *distance = new float[M * M];
-    float *D = new float[M];
-    float *topK_thr = new float[M];
-    float *temp = new float[M];
-    float *WX = new float[N * M];
-    float *WXL = new float[N * M];
-
-    memset(distance, 0, sizeof(float) * M * M);
-    //calculate distance of X_i, X_j
-    for(int i = 0;i < M;++i){
-        for(int j = i + 1;j < M;++j){
-            const float* x1 = X + K * i;
-            const float* x2 = X + K * j;
-            float square_sum = 0;
-            for(int k = 0;k < K;++k){
-                square_sum += (x1[k] - x2[k]) * (x1[k] - x2[k]);
-            }
-            distance[i * M + j] = square_sum;
-            distance[j * M + i] = square_sum;
-        }
-    }
-    
-    //calculate threshold of topK
-    for(int i = 0;i < M;++i){
-        memcpy(temp, distance + i*M, sizeof(float) * M);
-        topK_thr[i] = find_topK_gpu(temp, topK, M);
-    }
-
-    //init S
-    for(int i = 0;i < M;++i){
-        for(int j = 0;j < M;++j){
-            S[i * M + j] = (distance[i * M + j] <= topK_thr[i]) ? 1 : 0;
-        }
-    }
-
-    //S <- (S + S^T) / 2
-    for(int i = 0;i < M;++i){
-        for(int j = i + 1;j < M;++j){
-            S[i * M + j] = (S[i * M + j] + S[j * M + i]) / 2;
-            S[j * M + i] = S[i * M + j];
-        }
-    }
-
-    //calculate D
-    for(int i = 0;i < M;++i){
-        float sum = 0;
-        for(int j = 0;j < M;++j){
-            sum += S[i * M + j];
-        }
-        D[i] = sum;
-    }
-    
-    //calculate L(store in S)
-    for(int i = 0;i < M;++i){
-        for(int j = 0;j < M;++j){
-            if(i == j) S[i * M + j] = D[i] - S[i * M + j];
-            else S[i * M + j] = 0 - S[i * M + j];
-        }
-    }
-    
-    memset(WX, 0, sizeof(float) * N * M);
-    memset(WXL, 0, sizeof(float) * N * M);
-
-    //W*X
-    caffe_gpu_gemm<float>(CblasNoTrans, CblasTrans, N, M, K, 1.0, W, X, 0.0, WX);
-    //W*X*L
-    caffe_gpu_gemm<float>(CblasNoTrans, CblasNoTrans, N, M, M, 1.0, WX, S, 0.0, WXL);
-    //delta_W <- lambda * W*X*L*X^T + delta_W
-    caffe_gpu_gemm<float>(CblasNoTrans, CblasNoTrans, N, K, M, lambda, WXL, X, 1.0, delta_W);
-
-    //output the value of delta_W after GR gradient
-    float sum = 0;
-    for(int i = 0;i < N;++i){
-        for(int j = 0;j < K;++j){
-            sum += delta_W[i * N + j];
-        }
-    }
-    LOG(INFO) << "GR delta_W sum " << sum << " average " << sum / (N*K);
-
-    delete [] S;
-    delete [] distance;
-    delete [] D;
-    delete [] topK_thr;
-    delete [] temp;
-    delete [] WX;
-    delete [] WXL;
-}
-
-template<>
-void caffe_gpu_GR<double>(const int N, const int K, const int M, const double* W, 
-    const double* X, const int topK, const double lambda, double* delta_W){
-    //TODO: complete the double version of this function
-}
-/* end of change */
 }  // namespace caffe

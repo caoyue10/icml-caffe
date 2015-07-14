@@ -177,7 +177,6 @@ void ImageDataLayer<Dtype>::InternalThreadEntry() {
   /* changes */
   int source_size = image_data_param.source_data_size();
   int labeled_target_size = image_data_param.labeled_target_size();
-  int target_size = lines_size - source_size;
 
   if(source_size == 0){ // test data
       for (int item_id = 0; item_id < batch_size; ++item_id) {

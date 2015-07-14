@@ -36,10 +36,6 @@ void cal_add_item_cpu(const Dtype co, const int N, const int K, const Dtype* W, 
 template <typename Dtype>
 void caffe_cpu_mmd(const int N, const int K, const int M, const int S, const int labeledTargetSize, 
     const Dtype* W, const Dtype* X, const Dtype gamma, Dtype* delta_W);
-
-template <typename Dtype>
-void caffe_cpu_GR(const int N, const int K, const int M, const Dtype* W, 
-    const Dtype* X, const int topK, const Dtype lambda, Dtype* delta_W);
 /* end of change */
 
 template <typename Dtype>
@@ -186,10 +182,6 @@ void cal_add_item_gpu(const Dtype co, const int N, const int K, const Dtype* W, 
 template <typename Dtype>
 void caffe_gpu_mmd(const int N, const int K, const int M, const int S, const int labeledTargetSize, 
     const Dtype* W, const Dtype* X, const Dtype gamma, Dtype* delta_W);
-
-template <typename Dtype>
-void caffe_gpu_GR(const int N, const int K, const int M, const Dtype* W, 
-    const Dtype* X, const int topK, const Dtype lambda, Dtype* delta_W);
 /* end of change */
 
 

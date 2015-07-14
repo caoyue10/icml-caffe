@@ -1,17 +1,17 @@
-net: "models/icml/amazon_to_webcam/train_val.prototxt"
-test_iter: 15
-test_interval: 100
+net: "models/icml/train_val.prototxt"
+test_iter: 6
+test_interval:50 
 # lr for fine-tuning should be lower than when starting from scratch
 base_lr: 0.001
 lr_policy: "step"
-gamma: 0.5
+gamma: 0.2
 # stepsize should also be lower, as we're closer to being done
-stepsize: 1000
+stepsize: 500
 display:1
 max_iter: 100000
 momentum: 0.9
 weight_decay: 0.0005
-snapshot: 1000000
-snapshot_prefix: "models/icml/amazon_to_webcam/fc7_3_fc8_0.003"
+snapshot: 10000000
+snapshot_prefix: "models/icml/amazon_to_dslr"
 # uncomment the following to default to CPU mode solving
 solver_mode: GPU

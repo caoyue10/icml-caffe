@@ -1,4 +1,4 @@
-name: "amazon_to_webcam"
+name: "amazon_to_dslr"
 layers {
   name: "data"
   type: IMAGE_DATA
@@ -26,7 +26,7 @@ layers {
   top: "label"
   image_data_param {
     source: "test_path.txt"
-    batch_size: 53
+    batch_size: 83
     new_height: 256
     new_width: 256
     shuffle: True
@@ -289,7 +289,7 @@ layers {
   weight_decay: 0
   inner_product_param {
     num_output: 4096
-    mmd_lambda: 1
+    mmd_lambda: 3
     weight_filler {
       type: "gaussian"
       std: 0.005
@@ -323,11 +323,11 @@ layers {
   # blobs_lr is set to higher than for other layers, because this layer is starting from random while the others are already trained
   blobs_lr: 1
   blobs_lr: 2
-  weight_decay: 1
+  weight_decay: 100
   weight_decay: 0
   inner_product_param {
     num_output: 31 
-    mmd_lambda:0.01
+    mmd_lambda:0.03
     weight_filler {
       type: "gaussian"
       std: 0.01
